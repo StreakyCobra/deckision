@@ -1,3 +1,18 @@
-.greeting {
-  color: rebeccapurple;
+:global(html),
+:global(body) {
+  overscroll-behavior-y: none;
+}
+
+:global(body) {
+  margin: 0;
+}
+
+:global(#root) {
+  min-height: 100vh;
+}
+
+.screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
 }

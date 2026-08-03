@@ -1,5 +1,10 @@
+import { Card } from "./Card";
 import styles from "./App.module.css";
 
 export function App() {
-  return <h1 className={styles.greeting}>Hello world</h1>;
+  return (
+    <main className={styles.screen}>
+      <Card />
+    </main>
+  );
 }

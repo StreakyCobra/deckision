@@ -1,0 +1,91 @@
+.scene {
+  perspective: 62.5rem;
+  width: min(70vw, 18rem);
+}
+
+.card {
+  aspect-ratio: 5 / 7;
+  border-radius: 1rem;
+  box-shadow: 0 0 2rem rgb(0 0 0 / 20%);
+  cursor: grab;
+  position: relative;
+  touch-action: none;
+  transform-style: preserve-3d;
+  user-select: none;
+  width: 100%;
+  will-change: transform;
+}
+
+.card:active {
+  cursor: grabbing;
+}
+
+.face {
+  align-items: center;
+  backface-visibility: hidden;
+  border-radius: 1rem;
+  display: flex;
+  font-family: system-ui, sans-serif;
+  font-size: clamp(4rem, 20vw, 7rem);
+  font-weight: 700;
+  inset: 0;
+  justify-content: center;
+  overflow: hidden;
+  position: absolute;
+  -webkit-backface-visibility: hidden;
+}
+
+.front {
+  background: white;
+  color: #1f2937;
+}
+
+.back {
+  color: white;
+}
+
+.back[data-direction="right"] {
+  background: #1f9d55;
+}
+
+.back[data-direction="left"] {
+  background: #d64545;
+}
+
+.back[data-direction="up"] {
+  background: #2563eb;
+}
+
+.back[data-direction="down"] {
+  background: #d9a400;
+}
+
+.target[data-axis="horizontal"] {
+  transform: rotateY(180deg);
+}
+
+.target[data-axis="vertical"] {
+  transform: rotateX(180deg);
+}
+
+.hint {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.hint[data-direction="right"] {
+  background: linear-gradient(to left, transparent 45%, #1f9d55);
+}
+
+.hint[data-direction="left"] {
+  background: linear-gradient(to right, transparent 45%, #d64545);
+}
+
+.hint[data-direction="up"] {
+  background: linear-gradient(to bottom, transparent 45%, #2563eb);
+}
+
+.hint[data-direction="down"] {
+  background: linear-gradient(to top, transparent 45%, #d9a400);
+}
