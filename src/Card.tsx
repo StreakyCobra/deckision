@@ -171,9 +171,9 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
 
     try {
       await animate(rotationValue, rotationTarget, {
-        type: "spring",
-        stiffness: 420,
-        damping: 34,
+        type: "tween",
+        duration: 0.42,
+        ease: [0.22, 1, 0.36, 1],
       });
 
       if (shouldTurn) {
