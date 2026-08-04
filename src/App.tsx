@@ -11,7 +11,7 @@ const cardDirections = {
 export function App() {
   return (
     <main className={styles.screen}>
-      <Card directions={cardDirections} />
+      <Card text="Do you want to turn me around?" directions={cardDirections} />
     </main>
   );
 }

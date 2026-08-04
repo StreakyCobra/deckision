@@ -116,8 +116,29 @@ describe("Card", () => {
     vi.clearAllMocks();
   });
 
+  it("shows the same text after returning from the back face", async () => {
+    const text = "Do you want to turn me around?";
+    const { container } = render(<Card text={text} />);
+    const card = getCard(container);
+
+    expect(screen.getByText(text)).toBeInTheDocument();
+
+    drag(card, 130, 0);
+    fireEvent.pointerUp(card, { clientX: 130, clientY: 0 });
+
+    await waitFor(() => expect(getCurrentFace(container)).toHaveClass(styles.back));
+
+    drag(card, -130, 0);
+    fireEvent.pointerUp(card, { clientX: -130, clientY: 0 });
+
+    await waitFor(() => {
+      expect(getCurrentFace(container)).toHaveClass(styles.front);
+      expect(screen.getByText(text)).toBeInTheDocument();
+    });
+  });
+
   it("keeps all directions available without labels by default", () => {
-    const { container } = render(<Card />);
+    const { container } = render(<Card text="Should I do it?" />);
     const card = getCard(container);
 
     drag(card, 0, -130);
@@ -128,7 +149,10 @@ describe("Card", () => {
 
   it("renders an active label with its configured color", () => {
     const { container } = render(
-      <Card directions={{ right: { color: "#123456", label: "Yes" } }} />,
+      <Card
+        text="Should I do it?"
+        directions={{ right: { color: "#123456", label: "Yes" } }}
+      />,
     );
     const card = getCard(container);
 
@@ -160,7 +184,10 @@ describe("Card", () => {
 
   it("hides the label immediately when a partial drag returns to the front", async () => {
     const { container } = render(
-      <Card directions={{ right: { color: "#1f9d55", label: "Yes" } }} />,
+      <Card
+        text="Should I do it?"
+        directions={{ right: { color: "#1f9d55", label: "Yes" } }}
+      />,
     );
     const card = getCard(container);
 
@@ -176,7 +203,10 @@ describe("Card", () => {
 
   it("does not preview or complete a direction that is not configured", async () => {
     const { container } = render(
-      <Card directions={{ left: { color: "#d64545", label: "No" } }} />,
+      <Card
+        text="Should I do it?"
+        directions={{ left: { color: "#d64545", label: "No" } }}
+      />,
     );
     const card = getCard(container);
 
@@ -190,7 +220,7 @@ describe("Card", () => {
   });
 
   it("treats an empty direction map as no front choices", async () => {
-    const { container } = render(<Card directions={{}} />);
+    const { container } = render(<Card text="Should I do it?" directions={{}} />);
     const card = getCard(container);
 
     drag(card, 0, -130);
@@ -204,7 +234,10 @@ describe("Card", () => {
 
   it("allows any direction when returning from the back face", async () => {
     const { container } = render(
-      <Card directions={{ left: { color: "#d64545", label: "No" } }} />,
+      <Card
+        text="Should I do it?"
+        directions={{ left: { color: "#d64545", label: "No" } }}
+      />,
     );
     const card = getCard(container);
 
@@ -227,7 +260,7 @@ describe("Card", () => {
   });
 
   it("keeps the locked axis when the dominant movement changes", async () => {
-    const { container } = render(<Card />);
+    const { container } = render(<Card text="Should I do it?" />);
     const card = getCard(container);
 
     fireEvent.pointerDown(card, { clientX: 0, clientY: 0 });
@@ -246,6 +279,7 @@ describe("Card", () => {
   it("allows the direction to cross the origin without changing axis", async () => {
     const { container } = render(
       <Card
+        text="Should I do it?"
         directions={{
           right: { color: "#1f9d55", label: "Yes" },
           left: { color: "#d64545", label: "No" },
@@ -272,7 +306,7 @@ describe("Card", () => {
   });
 
   it("allows a new axis to be selected after release", async () => {
-    const { container } = render(<Card />);
+    const { container } = render(<Card text="Should I do it?" />);
     const card = getCard(container);
 
     fireEvent.pointerDown(card, { clientX: 0, clientY: 0 });

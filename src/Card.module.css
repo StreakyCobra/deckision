@@ -24,6 +24,7 @@
   align-items: center;
   backface-visibility: hidden;
   border-radius: 1rem;
+  box-sizing: border-box;
   display: flex;
   font-family: system-ui, sans-serif;
   font-size: clamp(4rem, 20vw, 7rem);
@@ -38,6 +39,10 @@
 .front {
   background: white;
   color: #1f2937;
+  font-size: clamp(1.25rem, 5vw, 2.25rem);
+  line-height: 1.2;
+  padding: 1.5rem;
+  text-align: center;
 }
 
 .back {

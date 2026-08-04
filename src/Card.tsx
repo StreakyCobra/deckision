@@ -14,6 +14,7 @@ export interface TurnDirectionConfig {
 }
 
 export interface CardProps {
+  text: string;
   directions?: Partial<Record<TurnDirection, TurnDirectionConfig>>;
 }
 
@@ -71,7 +72,7 @@ function getColorStyle(color: string): CardColorStyle {
   return { "--card-color": color };
 }
 
-export function Card({ directions }: CardProps) {
+export function Card({ text, directions }: CardProps) {
   const directionConfigs = directions ?? DEFAULT_DIRECTION_CONFIGS;
   const [face, setFace] = useState<CardFace>("front");
   const [axis, setAxis] = useState<TurnAxis | null>(null);
@@ -230,7 +231,7 @@ export function Card({ directions }: CardProps) {
               )}
             </>
           )}
-          <span>{face === "front" ? "?" : "!"}</span>
+          <span>{face === "front" ? text : "!"}</span>
         </div>
         <div
           className={`${styles.face} ${styles.target} ${
@@ -240,7 +241,7 @@ export function Card({ directions }: CardProps) {
           data-direction={targetDirection}
           style={getColorStyle(targetColor)}
         >
-          <span>{targetFace === "front" ? "?" : "!"}</span>
+          <span>{targetFace === "front" ? text : "!"}</span>
         </div>
       </motion.div>
     </div>
