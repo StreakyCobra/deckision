@@ -1,3 +1,4 @@
+import "@fontsource-variable/ibm-plex-sans";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 
