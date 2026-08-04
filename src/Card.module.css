@@ -79,7 +79,7 @@
   backface-visibility: hidden;
   -webkit-text-stroke: 0.12rem white;
   color: var(--card-color);
-  font-size: 5cqw;
+  font-size: 10cqw;
   font-weight: 700;
   line-height: 1.1;
   max-width: 55%;
@@ -96,9 +96,8 @@
 }
 
 .hintLabel[data-direction="right"] {
+  top: 8%;
   left: 8%;
-  top: 50%;
-  transform: translateY(-50%);
 }
 
 .hint[data-direction="left"] {
@@ -106,18 +105,17 @@
 }
 
 .hintLabel[data-direction="left"] {
+  top: 8%;
   right: 8%;
-  top: 50%;
-  transform: translateY(-50%);
 }
 
 .hint[data-direction="up"] {
-  background: linear-gradient(to bottom, transparent 45%, var(--card-color));
+  background: linear-gradient(to top, transparent 45%, var(--card-color));
 }
 
 .hintLabel[data-direction="up"] {
+  top: 8%;
   left: 50%;
-  bottom: 8%;
   transform: translateX(-50%);
 }
 
