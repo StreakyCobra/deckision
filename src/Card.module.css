@@ -41,23 +41,8 @@
 }
 
 .back {
+  background: var(--card-color);
   color: white;
-}
-
-.back[data-direction="right"] {
-  background: #1f9d55;
-}
-
-.back[data-direction="left"] {
-  background: #d64545;
-}
-
-.back[data-direction="up"] {
-  background: #2563eb;
-}
-
-.back[data-direction="down"] {
-  background: #d9a400;
 }
 
 .target[data-axis="horizontal"] {
@@ -69,23 +54,66 @@
 }
 
 .hint {
+  backface-visibility: hidden;
   inset: 0;
   pointer-events: none;
   position: absolute;
+  z-index: 1;
+  -webkit-backface-visibility: hidden;
+}
+
+.hintLabel {
+  backface-visibility: hidden;
+  -webkit-text-stroke: 0.12rem white;
+  color: var(--card-color);
+  font-size: clamp(1rem, 5vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.1;
+  max-width: 55%;
+  paint-order: stroke fill;
+  position: absolute;
+  text-align: center;
+  overflow-wrap: anywhere;
+  -webkit-backface-visibility: hidden;
+  z-index: 2;
 }
 
 .hint[data-direction="right"] {
-  background: linear-gradient(to left, transparent 45%, #1f9d55);
+  background: linear-gradient(to left, transparent 45%, var(--card-color));
+}
+
+.hintLabel[data-direction="right"] {
+  left: 8%;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .hint[data-direction="left"] {
-  background: linear-gradient(to right, transparent 45%, #d64545);
+  background: linear-gradient(to right, transparent 45%, var(--card-color));
+}
+
+.hintLabel[data-direction="left"] {
+  right: 8%;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .hint[data-direction="up"] {
-  background: linear-gradient(to bottom, transparent 45%, #2563eb);
+  background: linear-gradient(to bottom, transparent 45%, var(--card-color));
+}
+
+.hintLabel[data-direction="up"] {
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%);
 }
 
 .hint[data-direction="down"] {
-  background: linear-gradient(to top, transparent 45%, #d9a400);
+  background: linear-gradient(to top, transparent 45%, var(--card-color));
+}
+
+.hintLabel[data-direction="down"] {
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
 }

@@ -1,11 +1,25 @@
 import { animate, motion, useMotionValue, useTransform, type PanInfo } from "motion/react";
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 
 import styles from "./Card.module.css";
 
 type CardFace = "front" | "back";
 type TurnAxis = "horizontal" | "vertical";
-type TurnDirection = "left" | "right" | "up" | "down";
+
+export type TurnDirection = "left" | "right" | "up" | "down";
+
+export interface TurnDirectionConfig {
+  color: string;
+  label: string;
+}
+
+export interface CardProps {
+  directions?: Partial<Record<TurnDirection, TurnDirectionConfig>>;
+}
+
+type CardColorStyle = CSSProperties & {
+  "--card-color": string;
+};
 
 const AXIS_LOCK_DISTANCE = 12;
 const AXIS_RESET_DISTANCE = 8;
@@ -14,6 +28,13 @@ const DEGREES_PER_PIXEL = 0.75;
 const MAX_DRAG_ANGLE = 160;
 const REVEAL_ANGLE = 90;
 const COMPLETE_TURN_ANGLE = 180;
+
+const DEFAULT_DIRECTION_CONFIGS: Record<TurnDirection, TurnDirectionConfig> = {
+  right: { color: "#1f9d55", label: "Yes" },
+  left: { color: "#d64545", label: "No" },
+  up: { color: "#2563eb", label: "Skip" },
+  down: { color: "#d9a400", label: "Back" },
+};
 
 function getAxis(offset: PanInfo["offset"]): TurnAxis {
   return Math.abs(offset.x) >= Math.abs(offset.y) ? "horizontal" : "vertical";
@@ -40,11 +61,24 @@ function getRotation(direction: TurnDirection, angle: number) {
   }
 }
 
-export function Card() {
+function getDirectionColor(
+  direction: TurnDirection,
+  directions: Partial<Record<TurnDirection, TurnDirectionConfig>>,
+) {
+  return directions[direction]?.color ?? DEFAULT_DIRECTION_CONFIGS[direction].color;
+}
+
+function getColorStyle(color: string): CardColorStyle {
+  return { "--card-color": color };
+}
+
+export function Card({ directions }: CardProps) {
+  const directionConfigs = directions ?? DEFAULT_DIRECTION_CONFIGS;
   const [face, setFace] = useState<CardFace>("front");
   const [axis, setAxis] = useState<TurnAxis | null>(null);
   const [backDirection, setBackDirection] = useState<TurnDirection>("right");
   const [previewDirection, setPreviewDirection] = useState<TurnDirection | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const axisRef = useRef<TurnAxis | null>(null);
   const isSettlingRef = useRef(false);
   const rotateX = useMotionValue(0);
@@ -52,11 +86,15 @@ export function Card() {
   const hintOpacity = useTransform(() =>
     Math.min(1, (Math.abs(rotateX.get()) + Math.abs(rotateY.get())) / 90),
   );
+  const labelOpacity = useTransform(() =>
+    Math.abs(rotateX.get()) + Math.abs(rotateY.get()) < REVEAL_ANGLE ? 1 : 0,
+  );
 
   function resetAxis() {
     axisRef.current = null;
     setAxis(null);
     setPreviewDirection(null);
+    setIsDragging(false);
   }
 
   function onPanStart() {
@@ -65,6 +103,7 @@ export function Card() {
     }
 
     resetAxis();
+    setIsDragging(true);
   }
 
   function onPan(_: PointerEvent, info: PanInfo) {
@@ -96,10 +135,20 @@ export function Card() {
 
     const offset = activeAxis === "horizontal" ? info.offset.x : info.offset.y;
     const direction = getDirection(activeAxis, offset);
+
+    if (face === "front" && !directionConfigs[direction]) {
+      setPreviewDirection(null);
+      setIsDragging(false);
+      rotateX.set(0);
+      rotateY.set(0);
+      return;
+    }
+
     const angle = Math.min(Math.abs(offset) * DEGREES_PER_PIXEL, MAX_DRAG_ANGLE);
     const rotation = getRotation(direction, angle);
 
-    setPreviewDirection(direction);
+    setPreviewDirection(face === "front" ? direction : null);
+    setIsDragging(face === "front");
     rotateX.set(rotation.rotateX);
     rotateY.set(rotation.rotateY);
   }
@@ -112,9 +161,11 @@ export function Card() {
     const activeAxis = axisRef.current;
 
     if (!activeAxis) {
+      setIsDragging(false);
       return;
     }
 
+    setIsDragging(false);
     isSettlingRef.current = true;
 
     const offset = activeAxis === "horizontal" ? info.offset.x : info.offset.y;
@@ -122,8 +173,10 @@ export function Card() {
     const direction = getDirection(activeAxis, offset);
     const rotationValue = activeAxis === "horizontal" ? rotateY : rotateX;
     const isBackRevealed = Math.abs(rotationValue.get()) > REVEAL_ANGLE;
+    const isAllowed = face === "back" || Boolean(directionConfigs[direction]);
     const shouldTurn =
-      isBackRevealed || (Math.abs(velocity) >= TURN_VELOCITY && velocity * offset > 0);
+      isAllowed &&
+      (isBackRevealed || (Math.abs(velocity) >= TURN_VELOCITY && velocity * offset > 0));
     const rotation = getRotation(direction, shouldTurn ? COMPLETE_TURN_ANGLE : 0);
     const rotationTarget = activeAxis === "horizontal" ? rotation.rotateY : rotation.rotateX;
 
@@ -150,6 +203,9 @@ export function Card() {
 
   const targetFace: CardFace = face === "front" ? "back" : "front";
   const targetDirection = previewDirection ?? backDirection;
+  const targetColor = getDirectionColor(targetDirection, directionConfigs);
+  const backColor = getDirectionColor(backDirection, directionConfigs);
+  const previewConfig = previewDirection ? directionConfigs[previewDirection] : undefined;
 
   return (
     <div className={styles.scene}>
@@ -163,21 +219,37 @@ export function Card() {
         <div
           className={`${styles.face} ${face === "front" ? styles.front : styles.back}`}
           data-direction={backDirection}
+          style={getColorStyle(backColor)}
         >
-          {face === "front" && previewDirection && (
-            <motion.div
-              aria-hidden="true"
-              className={styles.hint}
-              data-direction={previewDirection}
-              style={{ opacity: hintOpacity }}
-            />
+          {face === "front" && previewDirection && previewConfig && (
+            <>
+              <motion.div
+                aria-hidden="true"
+                className={styles.hint}
+                data-direction={previewDirection}
+                style={{ ...getColorStyle(previewConfig.color), opacity: hintOpacity }}
+              />
+              {isDragging && previewConfig.label && (
+                <motion.span
+                  aria-hidden="true"
+                  className={styles.hintLabel}
+                  data-direction={previewDirection}
+                  style={{ ...getColorStyle(previewConfig.color), opacity: labelOpacity }}
+                >
+                  {previewConfig.label}
+                </motion.span>
+              )}
+            </>
           )}
           <span>{face === "front" ? "?" : "!"}</span>
         </div>
         <div
-          className={`${styles.face} ${styles.target} ${targetFace === "front" ? styles.front : styles.back}`}
+          className={`${styles.face} ${styles.target} ${
+            targetFace === "front" ? styles.front : styles.back
+          }`}
           data-axis={axis ?? "horizontal"}
           data-direction={targetDirection}
+          style={getColorStyle(targetColor)}
         >
           <span>{targetFace === "front" ? "?" : "!"}</span>
         </div>
