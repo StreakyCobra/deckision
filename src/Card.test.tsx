@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createRef, type ReactNode } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import styles from "./Card.module.css";
-import { Card } from "./Card";
+import { Card, type CardHandle } from "./Card";
 
 type TestPanInfo = {
   offset: { x: number; y: number };
@@ -135,6 +135,45 @@ describe("Card", () => {
       expect(getCurrentFace(container)).toHaveClass(styles.front);
       expect(screen.getByText(text)).toBeInTheDocument();
     });
+  });
+
+  it("can be turned through its imperative handle", async () => {
+    const ref = createRef<CardHandle>();
+    const { container } = render(<Card ref={ref} text="Should I do it?" />);
+
+    let turned = false;
+    await act(async () => {
+      turned = await ref.current!.turn("right");
+    });
+
+    expect(turned).toBe(true);
+    expect(getCurrentFace(container)).toHaveClass(styles.back);
+
+    await act(async () => {
+      turned = await ref.current!.turn("up");
+    });
+
+    expect(turned).toBe(true);
+    expect(getCurrentFace(container)).toHaveClass(styles.front);
+  });
+
+  it("rejects an imperative turn that is not configured", async () => {
+    const ref = createRef<CardHandle>();
+    const { container } = render(
+      <Card
+        ref={ref}
+        text="Should I do it?"
+        directions={{ left: { color: "#d64545", label: "No" } }}
+      />,
+    );
+
+    let turned = true;
+    await act(async () => {
+      turned = await ref.current!.turn("right");
+    });
+
+    expect(turned).toBe(false);
+    expect(getCurrentFace(container)).toHaveClass(styles.front);
   });
 
   it("keeps all directions available without labels by default", () => {

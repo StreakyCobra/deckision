@@ -1,5 +1,11 @@
 import { animate, motion, useMotionValue, useTransform, type PanInfo } from "motion/react";
-import { useRef, useState, type CSSProperties } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 import styles from "./Card.module.css";
 
@@ -16,6 +22,10 @@ export interface TurnDirectionConfig {
 export interface CardProps {
   text: string;
   directions?: Partial<Record<TurnDirection, TurnDirectionConfig>>;
+}
+
+export interface CardHandle {
+  turn(direction: TurnDirection): Promise<boolean>;
 }
 
 type CardColorStyle = CSSProperties & {
@@ -48,6 +58,10 @@ function getDirection(axis: TurnAxis, offset: number): TurnDirection {
   return offset >= 0 ? "down" : "up";
 }
 
+function getAxisForDirection(direction: TurnDirection): TurnAxis {
+  return direction === "left" || direction === "right" ? "horizontal" : "vertical";
+}
+
 function getRotation(direction: TurnDirection, angle: number) {
   switch (direction) {
     case "right":
@@ -72,7 +86,10 @@ function getColorStyle(color: string): CardColorStyle {
   return { "--card-color": color };
 }
 
-export function Card({ text, directions }: CardProps) {
+export const Card = forwardRef<CardHandle, CardProps>(function Card(
+  { text, directions },
+  ref,
+) {
   const directionConfigs = directions ?? DEFAULT_DIRECTION_CONFIGS;
   const [face, setFace] = useState<CardFace>("front");
   const [axis, setAxis] = useState<TurnAxis | null>(null);
@@ -143,6 +160,58 @@ export function Card({ text, directions }: CardProps) {
     rotateY.set(rotation.rotateY);
   }
 
+  async function settleTurn(
+    direction: TurnDirection,
+    activeAxis: TurnAxis,
+    shouldTurn: boolean,
+  ): Promise<boolean> {
+    const rotationValue = activeAxis === "horizontal" ? rotateY : rotateX;
+    const rotation = getRotation(direction, shouldTurn ? COMPLETE_TURN_ANGLE : 0);
+    const rotationTarget = activeAxis === "horizontal" ? rotation.rotateY : rotation.rotateX;
+
+    try {
+      await animate(rotationValue, rotationTarget, {
+        type: "spring",
+        stiffness: 420,
+        damping: 34,
+      });
+
+      if (shouldTurn) {
+        if (face === "front") {
+          setBackDirection(direction);
+          setFace("back");
+        } else {
+          setFace("front");
+        }
+      }
+
+      return shouldTurn;
+    } finally {
+      rotateX.set(0);
+      rotateY.set(0);
+      resetAxis();
+      isSettlingRef.current = false;
+    }
+  }
+
+  async function turn(direction: TurnDirection): Promise<boolean> {
+    if (isSettlingRef.current || (face === "front" && !directionConfigs[direction])) {
+      return false;
+    }
+
+    const activeAxis = getAxisForDirection(direction);
+    axisRef.current = activeAxis;
+    setAxis(activeAxis);
+    if (face === "front") {
+      setBackDirection(direction);
+    }
+    setPreviewDirection(null);
+    setIsDragging(false);
+    isSettlingRef.current = true;
+
+    return settleTurn(direction, activeAxis, true);
+  }
+
   async function onPanEnd(_: PointerEvent, info: PanInfo) {
     if (isSettlingRef.current) {
       return;
@@ -167,29 +236,10 @@ export function Card({ text, directions }: CardProps) {
     const shouldTurn =
       isAllowed &&
       (isBackRevealed || (Math.abs(velocity) >= TURN_VELOCITY && velocity * offset > 0));
-    const rotation = getRotation(direction, shouldTurn ? COMPLETE_TURN_ANGLE : 0);
-    const rotationTarget = activeAxis === "horizontal" ? rotation.rotateY : rotation.rotateX;
-
-    await animate(rotationValue, rotationTarget, {
-      type: "spring",
-      stiffness: 420,
-      damping: 34,
-    });
-
-    if (shouldTurn) {
-      if (face === "front") {
-        setBackDirection(direction);
-        setFace("back");
-      } else {
-        setFace("front");
-      }
-    }
-
-    rotateX.set(0);
-    rotateY.set(0);
-    resetAxis();
-    isSettlingRef.current = false;
+    await settleTurn(direction, activeAxis, shouldTurn);
   }
+
+  useImperativeHandle(ref, () => ({ turn }), [directions, face]);
 
   const targetFace: CardFace = face === "front" ? "back" : "front";
   const targetDirection = previewDirection ?? backDirection;
@@ -246,4 +296,4 @@ export function Card({ text, directions }: CardProps) {
       </motion.div>
     </div>
   );
-}
+});
