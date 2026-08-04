@@ -225,4 +225,65 @@ describe("Card", () => {
 
     await waitFor(() => expect(getCurrentFace(container)).toHaveClass(styles.front));
   });
+
+  it("keeps the locked axis when the dominant movement changes", async () => {
+    const { container } = render(<Card />);
+    const card = getCard(container);
+
+    fireEvent.pointerDown(card, { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(card, { clientX: 30, clientY: 0 });
+    expect(container.querySelector('[data-axis="horizontal"]')).toBeInTheDocument();
+
+    fireEvent.pointerMove(card, { clientX: 4, clientY: 100 });
+
+    expect(container.querySelector('[data-axis="horizontal"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-axis="vertical"]')).not.toBeInTheDocument();
+
+    fireEvent.pointerUp(card, { clientX: 4, clientY: 100 });
+    await waitFor(() => expect(getCurrentFace(container)).toHaveClass(styles.front));
+  });
+
+  it("allows the direction to cross the origin without changing axis", async () => {
+    const { container } = render(
+      <Card
+        directions={{
+          right: { color: "#1f9d55", label: "Yes" },
+          left: { color: "#d64545", label: "No" },
+        }}
+      />,
+    );
+    const card = getCard(container);
+
+    fireEvent.pointerDown(card, { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(card, { clientX: 30, clientY: 0 });
+    expect(screen.getByText("Yes")).toBeInTheDocument();
+
+    fireEvent.pointerMove(card, { clientX: -30, clientY: 0 });
+
+    expect(screen.getByText("No")).toBeInTheDocument();
+    expect(screen.queryByText("Yes")).not.toBeInTheDocument();
+    expect(container.querySelector('[data-axis="horizontal"]')).toHaveAttribute(
+      "data-direction",
+      "left",
+    );
+
+    fireEvent.pointerUp(card, { clientX: -30, clientY: 0 });
+    await waitFor(() => expect(getCurrentFace(container)).toHaveClass(styles.front));
+  });
+
+  it("allows a new axis to be selected after release", async () => {
+    const { container } = render(<Card />);
+    const card = getCard(container);
+
+    fireEvent.pointerDown(card, { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(card, { clientX: 30, clientY: 0 });
+    fireEvent.pointerUp(card, { clientX: 30, clientY: 0 });
+
+    await waitFor(() => expect(getCurrentFace(container)).toHaveClass(styles.front));
+
+    fireEvent.pointerDown(card, { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(card, { clientX: 0, clientY: 30 });
+
+    expect(container.querySelector('[data-axis="vertical"]')).toBeInTheDocument();
+  });
 });

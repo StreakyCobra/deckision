@@ -22,7 +22,6 @@ type CardColorStyle = CSSProperties & {
 };
 
 const AXIS_LOCK_DISTANCE = 12;
-const AXIS_RESET_DISTANCE = 8;
 const TURN_VELOCITY = 500;
 const DEGREES_PER_PIXEL = 0.75;
 const MAX_DRAG_ANGLE = 160;
@@ -112,16 +111,6 @@ export function Card({ directions }: CardProps) {
     }
 
     let activeAxis = axisRef.current;
-
-    if (
-      activeAxis &&
-      Math.abs(activeAxis === "horizontal" ? info.offset.x : info.offset.y) <= AXIS_RESET_DISTANCE
-    ) {
-      resetAxis();
-      rotateX.set(0);
-      rotateY.set(0);
-      activeAxis = null;
-    }
 
     if (!activeAxis && Math.max(Math.abs(info.offset.x), Math.abs(info.offset.y)) >= AXIS_LOCK_DISTANCE) {
       activeAxis = getAxis(info.offset);
