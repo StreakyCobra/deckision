@@ -22,6 +22,9 @@ export interface TurnDirectionConfig {
 export interface CardProps {
   text: string;
   directions?: Partial<Record<TurnDirection, TurnDirectionConfig>>;
+  disabledDirections?: readonly TurnDirection[];
+  initialTurn?: TurnDirection;
+  onTurn?: (direction: TurnDirection) => void;
 }
 
 export interface CardHandle {
@@ -87,13 +90,19 @@ function getColorStyle(color: string): CardColorStyle {
 }
 
 export const Card = forwardRef<CardHandle, CardProps>(function Card(
-  { text, directions },
+  {
+    text,
+    directions,
+    disabledDirections,
+    initialTurn,
+    onTurn,
+  },
   ref,
 ) {
   const directionConfigs = directions ?? DEFAULT_DIRECTION_CONFIGS;
-  const [face, setFace] = useState<CardFace>("front");
+  const [face, setFace] = useState<CardFace>(initialTurn ? "back" : "front");
   const [axis, setAxis] = useState<TurnAxis | null>(null);
-  const [backDirection, setBackDirection] = useState<TurnDirection>("right");
+  const [backDirection, setBackDirection] = useState<TurnDirection>(initialTurn ?? "right");
   const [previewDirection, setPreviewDirection] = useState<TurnDirection | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const axisRef = useRef<TurnAxis | null>(null);
@@ -106,6 +115,10 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
   const labelOpacity = useTransform(() =>
     Math.abs(rotateX.get()) + Math.abs(rotateY.get()) < REVEAL_ANGLE ? 1 : 0,
   );
+
+  function isDirectionAvailable(direction: TurnDirection) {
+    return !disabledDirections?.includes(direction) && Boolean(directionConfigs[direction]);
+  }
 
   function resetAxis() {
     axisRef.current = null;
@@ -143,7 +156,7 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
     const offset = activeAxis === "horizontal" ? info.offset.x : info.offset.y;
     const direction = getDirection(activeAxis, offset);
 
-    if (face === "front" && !directionConfigs[direction]) {
+    if (face === "front" && !isDirectionAvailable(direction)) {
       setPreviewDirection(null);
       setIsDragging(false);
       rotateX.set(0);
@@ -183,6 +196,8 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
         } else {
           setFace("front");
         }
+
+        onTurn?.(direction);
       }
 
       return shouldTurn;
@@ -195,7 +210,7 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
   }
 
   async function turn(direction: TurnDirection): Promise<boolean> {
-    if (isSettlingRef.current || (face === "front" && !directionConfigs[direction])) {
+    if (isSettlingRef.current || (face === "front" && !isDirectionAvailable(direction))) {
       return false;
     }
 
@@ -232,14 +247,14 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
     const direction = getDirection(activeAxis, offset);
     const rotationValue = activeAxis === "horizontal" ? rotateY : rotateX;
     const isBackRevealed = Math.abs(rotationValue.get()) > REVEAL_ANGLE;
-    const isAllowed = face === "back" || Boolean(directionConfigs[direction]);
+    const isAllowed = face === "back" || isDirectionAvailable(direction);
     const shouldTurn =
       isAllowed &&
       (isBackRevealed || (Math.abs(velocity) >= TURN_VELOCITY && velocity * offset > 0));
     await settleTurn(direction, activeAxis, shouldTurn);
   }
 
-  useImperativeHandle(ref, () => ({ turn }), [directions, face]);
+  useImperativeHandle(ref, () => ({ turn }), [directions, disabledDirections, face, onTurn]);
 
   const targetFace: CardFace = face === "front" ? "back" : "front";
   const targetDirection = previewDirection ?? backDirection;
@@ -248,7 +263,7 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
   const previewConfig = previewDirection ? directionConfigs[previewDirection] : undefined;
 
   return (
-    <div className={styles.scene}>
+    <div className={styles.scene} data-card-scene="true">
       <motion.div
         className={styles.card}
         style={{ rotateX, rotateY }}

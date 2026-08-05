@@ -13,11 +13,12 @@
 }
 
 :global(#root) {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100svh;
 }
 
 .screen {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
 }

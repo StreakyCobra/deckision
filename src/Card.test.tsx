@@ -157,6 +157,44 @@ describe("Card", () => {
     expect(getCurrentFace(container)).toHaveClass(styles.front);
   });
 
+  it("notifies the owner after a successful turn", async () => {
+    const onTurn = vi.fn();
+    const ref = createRef<CardHandle>();
+
+    render(<Card ref={ref} text="Should I do it?" onTurn={onTurn} />);
+
+    await act(async () => {
+      await ref.current!.turn("right");
+    });
+
+    expect(onTurn).toHaveBeenCalledOnce();
+    expect(onTurn).toHaveBeenCalledWith("right");
+  });
+
+  it("can render a colored back face initially", () => {
+    const { container } = render(
+      <Card
+        text="Should I do it?"
+        directions={{ right: { color: "#123456", label: "Yes" } }}
+        initialTurn="right"
+      />,
+    );
+
+    expect(getCurrentFace(container)).toHaveClass(styles.back);
+    expect(getCurrentFace(container).style.getPropertyValue("--card-color")).toBe("#123456");
+  });
+
+  it("notifies the owner after a successful pointer turn", async () => {
+    const onTurn = vi.fn();
+    const { container } = render(<Card text="Should I do it?" onTurn={onTurn} />);
+    const card = getCard(container);
+
+    drag(card, 130, 0);
+    fireEvent.pointerUp(card, { clientX: 130, clientY: 0 });
+
+    await waitFor(() => expect(onTurn).toHaveBeenCalledWith("right"));
+  });
+
   it("rejects an imperative turn that is not configured", async () => {
     const ref = createRef<CardHandle>();
     const { container } = render(

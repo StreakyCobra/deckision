@@ -1,18 +1,19 @@
 .scene {
   container-type: inline-size;
   perspective: 62.5rem;
-  width: min(70vw, 18rem);
+  width: min(70vw, 18rem, calc((100svh - 2rem) * 5 / 7));
 }
 
 .card {
   aspect-ratio: 5 / 7;
+  border: 0.125rem solid rgb(31 41 55 / 18%);
+  box-sizing: border-box;
   border-radius: 1rem;
   box-shadow: 0 0 2rem rgb(0 0 0 / 20%);
   cursor: grab;
   position: relative;
   touch-action: none;
   transform-style: preserve-3d;
-  user-select: none;
   width: 100%;
   will-change: transform;
 }

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 
-import { Card, type CardHandle, type TurnDirection } from "./Card";
+import { type TurnDirection } from "./Card";
 import styles from "./App.module.css";
+import { Deck, type DeckCard, type DeckHandle } from "./Deck";
 
 const cardDirections = {
   right: { color: "#16804b", label: "Yes" },
@@ -17,6 +18,19 @@ const KEYBOARD_DIRECTIONS: Record<string, TurnDirection> = {
   ArrowDown: "down",
 };
 
+const demoDeck: DeckCard[] = [
+  { id: "card-1", text: "Should we ship this idea today?" },
+  { id: "card-2", text: "Would a smaller first step help?" },
+  { id: "card-3", text: "Is this worth another hour of focus?" },
+  { id: "card-4", text: "Could we make this simpler?" },
+  { id: "card-5", text: "Should we ask for another opinion?" },
+  { id: "card-6", text: "Is this the right trade-off?" },
+  { id: "card-7", text: "Would a short experiment answer this?" },
+  { id: "card-8", text: "Can we remove one more step?" },
+  { id: "card-9", text: "Is this ready to share?" },
+  { id: "card-10", text: "What should we decide next?" },
+];
+
 function isTextEntryTarget(target: EventTarget | null) {
   return (
     target instanceof HTMLElement &&
@@ -25,7 +39,7 @@ function isTextEntryTarget(target: EventTarget | null) {
 }
 
 export function App() {
-  const activeCardRef = useRef<CardHandle>(null);
+  const deckRef = useRef<DeckHandle>(null);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -35,13 +49,13 @@ export function App() {
         !direction ||
         event.defaultPrevented ||
         isTextEntryTarget(event.target) ||
-        !activeCardRef.current
+        !deckRef.current
       ) {
         return;
       }
 
       event.preventDefault();
-      void activeCardRef.current.turn(direction);
+      void deckRef.current.turn(direction);
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -51,11 +65,7 @@ export function App() {
 
   return (
     <main className={styles.screen}>
-      <Card
-        ref={activeCardRef}
-        text="Do you want to turn me around?"
-        directions={cardDirections}
-      />
+      <Deck ref={deckRef} cards={demoDeck} directions={cardDirections} />
     </main>
   );
 }

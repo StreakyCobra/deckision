@@ -1,0 +1,35 @@
+.viewport {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+  width: 100%;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+}
+
+.track {
+  inset: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.slot {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.slot[data-active-card="true"] {
+  pointer-events: auto;
+}
+
+.viewport[data-navigation="-1"] .slot[data-active-card="true"],
+.viewport[data-navigation="1"] .slot[data-active-card="true"] {
+  pointer-events: none;
+}

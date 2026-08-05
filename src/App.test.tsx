@@ -5,21 +5,21 @@ const { turn } = vi.hoisted(() => ({
   turn: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("./Card", async () => {
+vi.mock("./Deck", async () => {
   const React = await import("react");
 
-  type MockCardHandle = {
+  type MockDeckHandle = {
     turn(direction: string): Promise<boolean>;
   };
 
   return {
-    Card: React.forwardRef<MockCardHandle, { text: string }>(function MockCard(
-      { text },
+    Deck: React.forwardRef<MockDeckHandle, object>(function MockDeck(
+      _props,
       ref,
     ) {
       React.useImperativeHandle(ref, () => ({ turn }), []);
 
-      return React.createElement("div", { "data-testid": "card" }, text);
+      return React.createElement("div", { "data-testid": "deck" });
     }),
   };
 });
@@ -56,4 +56,5 @@ describe("App", () => {
     expect(turn).not.toHaveBeenCalled();
     input.remove();
   });
+
 });
