@@ -15,7 +15,28 @@ import {
   type TurnDirection,
   type TurnDirectionConfig,
 } from "./Card";
+import {
+  DECK_DIRECTIONS,
+  getCard,
+  getTransition,
+  isTerminalCard,
+  type DeckCard,
+  type DeckDefinition,
+  type DeckDirection,
+} from "./deckGraph";
 import styles from "./Deck.module.css";
+
+export {
+  normalizeDeckConfig,
+  type DeckCard,
+  type DeckConfig,
+  type DeckDefinition,
+  type DeckDirection,
+  type DeckDirectionAlias,
+  type DeckDirectionKey,
+  type DeckTransition,
+  type DirectionAppearance,
+} from "./deckGraph";
 
 const WINDOW_RADIUS = 1;
 const CARD_PEEK_RATIO = 0.1;
@@ -29,14 +50,8 @@ const SLOT_TRANSITION = {
 
 const IMMEDIATE_TRANSITION = { duration: 0 } as const;
 
-export interface DeckCard {
-  id: string;
-  text: string;
-}
-
 export interface DeckProps {
-  cards: readonly DeckCard[];
-  directions?: Partial<Record<TurnDirection, TurnDirectionConfig>>;
+  deck: DeckDefinition;
 }
 
 export interface DeckHandle {
@@ -44,17 +59,22 @@ export interface DeckHandle {
 }
 
 type NavigationDelta = -1 | 0 | 1;
-type TurnHistory = Record<string, TurnDirection>;
-type CardVersions = Record<string, number>;
+type CardVersions = Record<number, number>;
+type CardVisit = {
+  visitId: number;
+  cardId: string;
+  direction?: DeckDirection;
+};
 type PendingNavigation = {
   delta: Exclude<NavigationDelta, 0>;
-  outgoingId: string;
-  targetId: string;
+  outgoing: CardVisit;
+  target: CardVisit;
+  direction?: DeckDirection;
 };
-
-function getNavigationDelta(direction: TurnDirection): Exclude<NavigationDelta, 0> {
-  return direction === "down" ? -1 : 1;
-}
+type PendingReturn = {
+  visitId: number;
+  direction: DeckDirection;
+};
 
 function getInitialPitch() {
   const basePitch =
@@ -65,102 +85,126 @@ function getInitialPitch() {
   return basePitch;
 }
 
-function getCardOffset(cardIndex: number, layoutIndex: number, pitch: number) {
-  return (cardIndex - layoutIndex) * pitch;
+function getCardOffset(slotIndex: number, layoutIndex: number, pitch: number) {
+  return (slotIndex - layoutIndex) * pitch;
 }
 
-function getWindowBounds(activeIndex: number, cardCount: number) {
-  if (cardCount === 0) {
-    return { start: 0, end: -1 };
-  }
-
-  const lastIndex = cardCount - 1;
-  const start = Math.max(0, Math.min(activeIndex - WINDOW_RADIUS, lastIndex - WINDOW_RADIUS * 2));
-
-  return {
-    start,
-    end: Math.min(lastIndex, start + WINDOW_RADIUS * 2),
-  };
+function bumpVersion(versions: CardVersions, visitId: number): CardVersions {
+  return { ...versions, [visitId]: (versions[visitId] ?? 0) + 1 };
 }
 
-function getDisabledDirections(activeIndex: number, cardCount: number): TurnDirection[] {
-  if (cardCount === 0) {
-    return ["left", "right", "up", "down"];
+function getOppositeDirection(direction: DeckDirection): DeckDirection {
+  switch (direction) {
+    case "left":
+      return "right";
+    case "right":
+      return "left";
+    case "up":
+      return "down";
+    case "down":
+      return "up";
   }
-
-  const disabled: TurnDirection[] = [];
-
-  if (activeIndex === 0) {
-    disabled.push("down");
-  }
-
-  if (activeIndex === cardCount - 1) {
-    disabled.push("left", "right", "up");
-  }
-
-  return disabled;
 }
 
-function bumpVersion(versions: CardVersions, cardId: string): CardVersions {
-  return { ...versions, [cardId]: (versions[cardId] ?? 0) + 1 };
-}
+function getCardDirections(
+  deck: DeckDefinition,
+  card: DeckCard,
+  canGoBack: boolean,
+): Partial<Record<TurnDirection, TurnDirectionConfig>> {
+  return Object.fromEntries(
+    DECK_DIRECTIONS.flatMap((direction) => {
+      const transition = getTransition(card, direction);
+      const hasValidTarget = Boolean(
+        transition && getCard(deck, transition.targetCardId),
+      );
+      const isImplicitBack = direction === "down" && !transition && canGoBack;
 
-function pruneByCardId<T>(values: Record<string, T>, cards: readonly DeckCard[]) {
-  const cardIds = new Set(cards.map((card) => card.id));
-  const pruned = Object.fromEntries(
-    Object.entries(values).filter(([cardId]) => cardIds.has(cardId)),
-  ) as Record<string, T>;
+      if (!hasValidTarget && !isImplicitBack) {
+        return [];
+      }
 
-  return Object.keys(pruned).length === Object.keys(values).length ? values : pruned;
+      const defaults = deck.directionDefaults?.[direction];
+      return [[direction, {
+        color: transition?.color ?? defaults?.color,
+        label: transition?.label ?? defaults?.label,
+      }]];
+    }),
+  );
 }
 
 export const Deck = forwardRef<DeckHandle, DeckProps>(function Deck(
-  { cards, directions },
+  { deck },
   ref,
 ) {
-  const [activeCardId, setActiveCardId] = useState<string | null>(cards[0]?.id ?? null);
-  const [navigationTargetId, setNavigationTargetId] = useState<string | null>(null);
+  const nextVisitIdRef = useRef(1);
+  const [visits, setVisits] = useState<CardVisit[]>(() => [
+    { visitId: 0, cardId: deck.startCardId },
+  ]);
+  const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
+  const [pendingReturn, setPendingReturn] = useState<PendingReturn | null>(null);
   const [pitch, setPitch] = useState(getInitialPitch);
-  const [turnHistory, setTurnHistory] = useState<TurnHistory>({});
   const [cardVersions, setCardVersions] = useState<CardVersions>({});
   const activeCardRef = useRef<CardHandle>(null);
   const isNavigatingRef = useRef(false);
   const pendingNavigationRef = useRef<PendingNavigation | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
-  const storedActiveIndex = cards.findIndex((card) => card.id === activeCardId);
-  const activeIndex = storedActiveIndex >= 0 ? storedActiveIndex : cards.length > 0 ? 0 : -1;
-  const activeId = cards[activeIndex]?.id ?? null;
-  const targetIndex = navigationTargetId
-    ? cards.findIndex((card) => card.id === navigationTargetId)
-    : -1;
-  const isNavigating = targetIndex >= 0 && activeIndex >= 0;
-  const layoutIndex = isNavigating ? targetIndex : Math.max(0, activeIndex);
-  const navigationDelta: NavigationDelta = isNavigating
-    ? targetIndex > activeIndex
-      ? 1
-      : -1
-    : 0;
+  const activeVisit = visits.at(-1);
+  const activeCard = activeVisit ? getCard(deck, activeVisit.cardId) : undefined;
+  const isNavigating = pendingNavigation !== null;
+  const navigationDelta: NavigationDelta = pendingNavigation?.delta ?? 0;
 
   useEffect(() => {
-    const activeCardIsValid = activeCardId === null || cards.some((card) => card.id === activeCardId);
-    const targetCardIsValid =
-      navigationTargetId === null || cards.some((card) => card.id === navigationTargetId);
-
-    if (!activeCardIsValid) {
+    if (!getCard(deck, deck.startCardId)) {
       isNavigatingRef.current = false;
       pendingNavigationRef.current = null;
-      setNavigationTargetId(null);
-      setActiveCardId(cards[0]?.id ?? null);
-    } else if (!targetCardIsValid) {
-      isNavigatingRef.current = false;
-      pendingNavigationRef.current = null;
-      setNavigationTargetId(null);
+      setPendingNavigation(null);
+      setPendingReturn(null);
+      setVisits((currentVisits) => (currentVisits.length === 0 ? currentVisits : []));
+      return;
     }
 
-    setTurnHistory((currentHistory) => pruneByCardId(currentHistory, cards));
-    setCardVersions((currentVersions) => pruneByCardId(currentVersions, cards));
-  }, [activeCardId, cards, navigationTargetId]);
+    if (!activeVisit || !getCard(deck, activeVisit.cardId)) {
+      const startVisit = { visitId: nextVisitIdRef.current++, cardId: deck.startCardId };
+      isNavigatingRef.current = false;
+      pendingNavigationRef.current = null;
+      setPendingNavigation(null);
+      setPendingReturn(null);
+      setVisits([startVisit]);
+    }
+  }, [activeVisit, deck]);
+
+  useEffect(() => {
+    if (!pendingReturn || activeVisit?.visitId !== pendingReturn.visitId) {
+      return;
+    }
+
+    let cancelled = false;
+    const currentReturn = pendingReturn;
+
+    async function finishReturn() {
+      const turned = await activeCardRef.current?.turn(currentReturn.direction);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (!turned) {
+        setCardVersions((currentVersions) =>
+          bumpVersion(currentVersions, currentReturn.visitId),
+        );
+      }
+
+      isNavigatingRef.current = false;
+      setPendingReturn(null);
+    }
+
+    void finishReturn();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeVisit?.visitId, pendingReturn]);
 
   useLayoutEffect(() => {
     function measurePitch() {
@@ -194,7 +238,7 @@ export const Deck = forwardRef<DeckHandle, DeckProps>(function Deck(
     window.addEventListener("resize", measurePitch);
 
     return () => window.removeEventListener("resize", measurePitch);
-  }, [activeId, cards.length]);
+  }, [activeVisit?.visitId]);
 
   function finishNavigation() {
     const pendingNavigation = pendingNavigationRef.current;
@@ -203,59 +247,116 @@ export const Deck = forwardRef<DeckHandle, DeckProps>(function Deck(
       return;
     }
 
-    if (!cards.some((card) => card.id === pendingNavigation.targetId)) {
+    if (!getCard(deck, pendingNavigation.target.cardId)) {
+      setCardVersions((currentVersions) =>
+        bumpVersion(currentVersions, pendingNavigation.outgoing.visitId),
+      );
       pendingNavigationRef.current = null;
       isNavigatingRef.current = false;
-      setNavigationTargetId(null);
+      setPendingNavigation(null);
       return;
     }
 
     if (pendingNavigation.delta < 0) {
-      setTurnHistory((currentHistory) => {
-        const nextHistory = { ...currentHistory };
-        delete nextHistory[pendingNavigation.outgoingId];
-        return nextHistory;
+      setVisits((currentVisits) => {
+        if (
+          currentVisits.at(-1)?.visitId !== pendingNavigation.outgoing.visitId ||
+          currentVisits.at(-2)?.visitId !== pendingNavigation.target.visitId
+        ) {
+          return currentVisits;
+        }
+
+        return currentVisits.slice(0, -1);
       });
-      setCardVersions((currentVersions) =>
-        bumpVersion(currentVersions, pendingNavigation.outgoingId),
-      );
+
+      pendingNavigationRef.current = null;
+      setPendingNavigation(null);
+
+      if (pendingNavigation.target.direction) {
+        setPendingReturn({
+          visitId: pendingNavigation.target.visitId,
+          direction: getOppositeDirection(pendingNavigation.target.direction),
+        });
+      } else {
+        setCardVersions((currentVersions) =>
+          bumpVersion(currentVersions, pendingNavigation.target.visitId),
+        );
+        isNavigatingRef.current = false;
+      }
+
+      return;
+    } else {
+      setVisits((currentVisits) => {
+        if (currentVisits.at(-1)?.visitId !== pendingNavigation.outgoing.visitId) {
+          return currentVisits;
+        }
+
+        const outgoing = {
+          ...pendingNavigation.outgoing,
+          direction: pendingNavigation.direction,
+        };
+        return [...currentVisits.slice(0, -1), outgoing, pendingNavigation.target];
+      });
     }
 
     pendingNavigationRef.current = null;
     isNavigatingRef.current = false;
-    setActiveCardId(pendingNavigation.targetId);
-    setNavigationTargetId(null);
+    setPendingNavigation(null);
   }
 
-  function onCardTurn(direction: TurnDirection, cardId: string) {
-    if (cardId !== activeId || isNavigatingRef.current || activeIndex < 0) {
+  function onCardTurn(direction: TurnDirection, visitId: number) {
+    if (
+      !activeVisit ||
+      visitId !== activeVisit.visitId ||
+      isNavigatingRef.current ||
+      !activeCard
+    ) {
       return;
     }
 
-    const delta = getNavigationDelta(direction);
-    const nextIndex = activeIndex + delta;
-    const targetCard = cards[nextIndex];
+    let pending: PendingNavigation | null = null;
 
-    if (!targetCard) {
+    const transition = getTransition(activeCard, direction);
+
+    if (transition) {
+      if (!getCard(deck, transition.targetCardId)) {
+        setCardVersions((currentVersions) =>
+          bumpVersion(currentVersions, activeVisit.visitId),
+        );
+        return;
+      }
+
+      pending = {
+        delta: 1,
+        outgoing: activeVisit,
+        target: {
+          visitId: nextVisitIdRef.current++,
+          cardId: transition.targetCardId,
+        },
+        direction,
+      };
+    } else if (direction === "down") {
+      const target = visits.at(-2);
+
+      if (!target) {
+        return;
+      }
+
+      pending = {
+        delta: -1,
+        outgoing: activeVisit,
+        target,
+      };
+    } else {
+      setCardVersions((currentVersions) =>
+        bumpVersion(currentVersions, activeVisit.visitId),
+      );
       return;
     }
 
     isNavigatingRef.current = true;
-    pendingNavigationRef.current = {
-      delta,
-      outgoingId: cardId,
-      targetId: targetCard.id,
-    };
-    setCardVersions((currentVersions) => bumpVersion(currentVersions, targetCard.id));
-
-    if (delta > 0) {
-      setTurnHistory((currentHistory) => ({
-        ...currentHistory,
-        [cardId]: direction,
-      }));
-    }
-
-    setNavigationTargetId(targetCard.id);
+    pendingNavigationRef.current = pending;
+    setPendingNavigation(pending);
   }
 
   useImperativeHandle(
@@ -272,14 +373,20 @@ export const Deck = forwardRef<DeckHandle, DeckProps>(function Deck(
     [],
   );
 
-  const activeBounds = getWindowBounds(Math.max(0, activeIndex), cards.length);
-  const targetBounds = isNavigating
-    ? getWindowBounds(targetIndex, cards.length)
-    : activeBounds;
-  const start = Math.min(activeBounds.start, targetBounds.start);
-  const end = Math.max(activeBounds.end, targetBounds.end);
-  const disabledDirections = getDisabledDirections(activeIndex, cards.length);
-  const visibleCards = cards.slice(start, end + 1);
+  const visibleVisits = isNavigating
+    ? pendingNavigation?.delta === 1
+      ? [...visits.slice(Math.max(0, visits.length - WINDOW_RADIUS * 2)), pendingNavigation.target]
+      : visits.slice(Math.max(0, visits.length - (WINDOW_RADIUS * 2 + 1)))
+    : visits.slice(Math.max(0, visits.length - (WINDOW_RADIUS + 1)));
+  const pendingForwardCard =
+    pendingNavigation?.delta === 1
+      ? getCard(deck, pendingNavigation.target.cardId)
+      : undefined;
+  const pendingForwardVisitId =
+    pendingNavigation?.delta === 1 ? pendingNavigation.target.visitId : undefined;
+  const showBottomPeek = pendingForwardCard
+    ? !isTerminalCard(pendingForwardCard)
+    : !isNavigating && !isTerminalCard(activeCard);
 
   return (
     <div
@@ -290,28 +397,47 @@ export const Deck = forwardRef<DeckHandle, DeckProps>(function Deck(
       onDragStartCapture={(event) => event.preventDefault()}
     >
       <div className={styles.track}>
-        {visibleCards.map((card, offset) => {
-          const cardIndex = start + offset;
-          const isActive = card.id === activeId;
-          const isEntering = card.id === navigationTargetId;
-          const isOutgoing = card.id === pendingNavigationRef.current?.outgoingId;
-          const initialTurn = isActive || isEntering ? undefined : turnHistory[card.id];
+        {visibleVisits.map((visit) => {
+          const card = getCard(deck, visit.cardId);
+
+          if (!card) {
+            return null;
+          }
+
+          const isActive = visit.visitId === activeVisit?.visitId;
+          const isEntering = visit.visitId === pendingNavigation?.target.visitId;
+          const isOutgoing = visit.visitId === pendingNavigationRef.current?.outgoing.visitId;
+          const pathIndex = visits.findIndex((currentVisit) => currentVisit.visitId === visit.visitId);
+          const initialSlotIndex = isEntering
+            ? pendingNavigation?.delta ?? 0
+            : pathIndex - (visits.length - 1);
+          const targetSlotIndex = !isNavigating
+            ? initialSlotIndex
+            : isEntering
+              ? 0
+              : pendingNavigation?.delta === 1
+                ? initialSlotIndex - 1
+                : initialSlotIndex + 1;
+          const initialTurn = isActive || isEntering ? undefined : visit.direction;
+          const cardDirections = getCardDirections(deck, card, pathIndex > 0);
           const slotStyle = {
             zIndex: isOutgoing ? 3 : isActive || isEntering ? 2 : 1,
           } satisfies CSSProperties;
 
           return (
             <motion.div
-              key={card.id}
+              key={visit.visitId}
               className={styles.slot}
               data-active-card={isActive ? "true" : undefined}
-              data-card-index={cardIndex}
+              data-card-index={pathIndex >= 0 ? pathIndex : visits.length}
               data-card-id={card.id}
+              data-terminal-card={isTerminalCard(card) ? "true" : undefined}
+              data-visit-id={visit.visitId}
               aria-hidden={!isActive}
-              animate={{ y: getCardOffset(cardIndex, layoutIndex, pitch) }}
+              animate={{ y: getCardOffset(targetSlotIndex, 0, pitch) }}
               initial={
                 isNavigating
-                  ? { y: getCardOffset(cardIndex, activeIndex, pitch) }
+                  ? { y: getCardOffset(initialSlotIndex, 0, pitch) }
                   : false
               }
               onAnimationComplete={isOutgoing ? finishNavigation : undefined}
@@ -319,17 +445,35 @@ export const Deck = forwardRef<DeckHandle, DeckProps>(function Deck(
               transition={isNavigating ? SLOT_TRANSITION : IMMEDIATE_TRANSITION}
             >
               <Card
-                key={`${card.id}-${cardVersions[card.id] ?? 0}`}
+                key={`${visit.visitId}-${cardVersions[visit.visitId] ?? 0}`}
                 ref={isActive ? activeCardRef : undefined}
                 text={card.text}
-                directions={directions}
-                disabledDirections={disabledDirections}
+                directions={cardDirections}
                 initialTurn={initialTurn}
-                onTurn={(direction) => onCardTurn(direction, card.id)}
+                onTurn={(direction) => onCardTurn(direction, visit.visitId)}
               />
             </motion.div>
           );
         })}
+        {showBottomPeek && (
+          <motion.div
+            key={pendingForwardVisitId ? `bottom-peek-${pendingForwardVisitId}` : "bottom-peek"}
+            className={styles.slot}
+            data-bottom-peek="true"
+            data-card-id="bottom-peek"
+            aria-hidden="true"
+            animate={{ y: pitch }}
+            initial={pendingForwardCard ? { y: pitch * 2 } : false}
+            style={{ zIndex: 1 }}
+            transition={pendingForwardCard ? SLOT_TRANSITION : IMMEDIATE_TRANSITION}
+          >
+            <Card
+              text=""
+              directions={{}}
+              disabledDirections={DECK_DIRECTIONS}
+            />
+          </motion.div>
+        )}
       </div>
     </div>
   );

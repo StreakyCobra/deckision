@@ -259,6 +259,26 @@ describe("Card", () => {
     });
   });
 
+  it("falls back each omitted appearance property independently", async () => {
+    const { container } = render(
+      <Card
+        text="Should I do it?"
+        directions={{ right: { color: "#123456" } }}
+      />,
+    );
+    const card = getCard(container);
+
+    drag(card, 30, 0);
+
+    expect(screen.getByText("Yes")).toBeInTheDocument();
+    expect(screen.getByText("Yes").getAttribute("style")).toContain(
+      "--card-color: #123456",
+    );
+
+    fireEvent.pointerUp(card, { clientX: 30, clientY: 0 });
+    await waitFor(() => expect(getCurrentFace(container)).toHaveClass(styles.front));
+  });
+
   it("hides the label immediately when a partial drag returns to the front", async () => {
     const { container } = render(
       <Card

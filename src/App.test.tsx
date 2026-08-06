@@ -13,6 +13,7 @@ vi.mock("./Deck", async () => {
   };
 
   return {
+    normalizeDeckConfig: (config: unknown) => config,
     Deck: React.forwardRef<MockDeckHandle, object>(function MockDeck(
       _props,
       ref,

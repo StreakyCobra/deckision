@@ -1,0 +1,108 @@
+startCardId: card-1
+
+directionDefaults:
+  yes:
+    color: "#16804b"
+    label: Yes
+  no:
+    color: "#c43d4a"
+    label: No
+  skip:
+    color: "#315bcf"
+    label: Skip
+  back:
+    color: "#b8860b"
+    label: Back
+
+cards:
+  - id: card-1
+    text: Should we ship this idea today?
+    transitions:
+      yes:
+        targetCardId: card-2
+      no:
+        targetCardId: card-3
+      skip:
+        targetCardId: card-4
+
+  - id: card-2
+    text: Would a smaller first step help?
+    transitions:
+      yes:
+        targetCardId: card-3
+        label: Start smaller
+        color: "#0f766e"
+      no:
+        targetCardId: card-1
+        label: Keep the scope
+        color: "#c2410c"
+      skip:
+        targetCardId: card-5
+        label: Decide later
+        color: "#7c3aed"
+
+  - id: card-3
+    text: Is this worth another hour of focus?
+    transitions:
+      yes:
+        targetCardId: card-4
+      no:
+        targetCardId: card-2
+      skip:
+        targetCardId: card-6
+
+  - id: card-4
+    text: Could we make this simpler?
+    transitions:
+      yes:
+        targetCardId: card-5
+      no:
+        targetCardId: card-1
+      skip:
+        targetCardId: card-7
+
+  - id: card-5
+    text: Should we ask for another opinion?
+    transitions:
+      yes:
+        targetCardId: card-6
+      no:
+        targetCardId: card-3
+      skip:
+        targetCardId: card-8
+
+  - id: card-6
+    text: Is this the right trade-off?
+    transitions:
+      yes:
+        targetCardId: card-7
+      no:
+        targetCardId: card-4
+      skip:
+        targetCardId: card-8
+
+  - id: card-7
+    text: Would a short experiment answer this?
+    transitions:
+      yes:
+        targetCardId: card-8
+      no:
+        targetCardId: card-5
+      skip:
+        targetCardId: card-9
+
+  - id: card-8
+    text: Can we remove one more step?
+    transitions:
+      yes:
+        targetCardId: card-9
+      no:
+        targetCardId: card-6
+      skip:
+        targetCardId: card-10
+
+  - id: card-9
+    text: Is this ready to share?
+
+  - id: card-10
+    text: What should we decide next?

@@ -8,16 +8,16 @@ import {
 } from "react";
 
 import styles from "./Card.module.css";
+import {
+  type DeckDirection,
+  type DirectionAppearance,
+} from "./deckGraph";
 
 type CardFace = "front" | "back";
 type TurnAxis = "horizontal" | "vertical";
 
-export type TurnDirection = "left" | "right" | "up" | "down";
-
-export interface TurnDirectionConfig {
-  color: string;
-  label: string;
-}
+export type TurnDirection = DeckDirection;
+export type TurnDirectionConfig = DirectionAppearance;
 
 export interface CardProps {
   text: string;
@@ -42,12 +42,12 @@ const MAX_DRAG_ANGLE = 160;
 const REVEAL_ANGLE = 90;
 const COMPLETE_TURN_ANGLE = 180;
 
-const DEFAULT_DIRECTION_CONFIGS: Record<TurnDirection, TurnDirectionConfig> = {
+const DEFAULT_DIRECTION_CONFIGS = {
   right: { color: "#1f9d55", label: "Yes" },
   left: { color: "#d64545", label: "No" },
   up: { color: "#2563eb", label: "Skip" },
   down: { color: "#d9a400", label: "Back" },
-};
+} satisfies Record<TurnDirection, { color: string; label: string }>;
 
 function getAxis(offset: PanInfo["offset"]): TurnAxis {
   return Math.abs(offset.x) >= Math.abs(offset.y) ? "horizontal" : "vertical";
@@ -83,6 +83,13 @@ function getDirectionColor(
   directions: Partial<Record<TurnDirection, TurnDirectionConfig>>,
 ) {
   return directions[direction]?.color ?? DEFAULT_DIRECTION_CONFIGS[direction].color;
+}
+
+function getDirectionLabel(
+  direction: TurnDirection,
+  directions: Partial<Record<TurnDirection, TurnDirectionConfig>>,
+) {
+  return directions[direction]?.label ?? DEFAULT_DIRECTION_CONFIGS[direction].label;
 }
 
 function getColorStyle(color: string): CardColorStyle {
@@ -261,6 +268,12 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
   const targetColor = getDirectionColor(targetDirection, directionConfigs);
   const backColor = getDirectionColor(backDirection, directionConfigs);
   const previewConfig = previewDirection ? directionConfigs[previewDirection] : undefined;
+  const previewColor = previewDirection
+    ? getDirectionColor(previewDirection, directionConfigs)
+    : undefined;
+  const previewLabel = previewDirection
+    ? getDirectionLabel(previewDirection, directionConfigs)
+    : undefined;
 
   return (
     <div className={styles.scene} data-card-scene="true">
@@ -276,22 +289,22 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
           data-direction={backDirection}
           style={getColorStyle(backColor)}
         >
-          {face === "front" && previewDirection && previewConfig && (
+          {face === "front" && previewDirection && previewConfig && previewColor && (
             <>
               <motion.div
                 aria-hidden="true"
                 className={styles.hint}
                 data-direction={previewDirection}
-                style={{ ...getColorStyle(previewConfig.color), opacity: hintOpacity }}
+                style={{ ...getColorStyle(previewColor), opacity: hintOpacity }}
               />
-              {isDragging && previewConfig.label && (
+              {isDragging && previewLabel && (
                 <motion.span
                   aria-hidden="true"
                   className={styles.hintLabel}
                   data-direction={previewDirection}
-                  style={{ ...getColorStyle(previewConfig.color), opacity: labelOpacity }}
+                  style={{ ...getColorStyle(previewColor), opacity: labelOpacity }}
                 >
-                  {previewConfig.label}
+                  {previewLabel}
                 </motion.span>
               )}
             </>
