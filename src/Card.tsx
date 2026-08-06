@@ -1,4 +1,12 @@
-import { animate, motion, useMotionValue, useTransform, type PanInfo } from "motion/react";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useTransform,
+  type MotionStyle,
+  type MotionValue,
+  type PanInfo,
+} from "motion/react";
 import {
   forwardRef,
   useImperativeHandle,
@@ -33,6 +41,11 @@ export interface CardHandle {
 
 type CardColorStyle = CSSProperties & {
   "--card-color": string;
+};
+
+type CardMotionStyle = MotionStyle & {
+  "--hint-color": string;
+  "--hint-opacity": MotionValue<number>;
 };
 
 const AXIS_LOCK_DISTANCE = 12;
@@ -274,12 +287,18 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
   const previewLabel = previewDirection
     ? getDirectionLabel(previewDirection, directionConfigs)
     : undefined;
+  const cardStyle: CardMotionStyle = {
+    rotateX,
+    rotateY,
+    "--hint-color": previewColor ?? backColor,
+    "--hint-opacity": hintOpacity,
+  };
 
   return (
     <div className={styles.scene} data-card-scene="true">
       <motion.div
         className={styles.card}
-        style={{ rotateX, rotateY }}
+        style={cardStyle}
         onPanStart={onPanStart}
         onPan={onPan}
         onPanEnd={onPanEnd}
@@ -287,27 +306,20 @@ export const Card = forwardRef<CardHandle, CardProps>(function Card(
         <div
           className={`${styles.face} ${face === "front" ? styles.front : styles.back}`}
           data-direction={backDirection}
+          data-preview-direction={face === "front" ? previewDirection : undefined}
           style={getColorStyle(backColor)}
         >
           {face === "front" && previewDirection && previewConfig && previewColor && (
-            <>
-              <motion.div
+            isDragging && previewLabel && (
+              <motion.span
                 aria-hidden="true"
-                className={styles.hint}
+                className={styles.hintLabel}
                 data-direction={previewDirection}
-                style={{ ...getColorStyle(previewColor), opacity: hintOpacity }}
-              />
-              {isDragging && previewLabel && (
-                <motion.span
-                  aria-hidden="true"
-                  className={styles.hintLabel}
-                  data-direction={previewDirection}
-                  style={{ ...getColorStyle(previewColor), opacity: labelOpacity }}
-                >
-                  {previewLabel}
-                </motion.span>
-              )}
-            </>
+                style={{ ...getColorStyle(previewColor), opacity: labelOpacity }}
+              >
+                {previewLabel}
+              </motion.span>
+            )
           )}
           <span>{face === "front" ? text : "!"}</span>
         </div>

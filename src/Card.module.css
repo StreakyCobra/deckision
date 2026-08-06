@@ -6,10 +6,8 @@
 
 .card {
   aspect-ratio: 5 / 7;
-  border: 0.125rem solid rgb(31 41 55 / 18%);
   box-sizing: border-box;
   border-radius: 1rem;
-  box-shadow: 0 0 2rem rgb(0 0 0 / 20%);
   cursor: grab;
   position: relative;
   touch-action: none;
@@ -25,8 +23,9 @@
 .face {
   align-items: center;
   backface-visibility: hidden;
-  border-radius: 1rem;
+  border-radius: inherit;
   box-sizing: border-box;
+  box-shadow: 0 0 2rem rgb(0 0 0 / 20%);
   display: flex;
   font-family: "IBM Plex Sans Variable", sans-serif;
   font-size: 39cqw;
@@ -40,6 +39,8 @@
 
 .front {
   background: white;
+  border: 0.125rem solid rgb(215 216 219);
+  box-shadow: 0 0 2rem rgb(0 0 0 / 20%);
   color: #1f2937;
   font-size: 7cqw;
   line-height: 1.2;
@@ -56,6 +57,7 @@
 
 .back {
   background: var(--card-color);
+  border: 0.125rem solid color-mix(in srgb, rgb(31 41 55) 18%, var(--card-color));
   color: white;
 }
 
@@ -65,15 +67,6 @@
 
 .target[data-axis="vertical"] {
   transform: rotateX(180deg);
-}
-
-.hint {
-  backface-visibility: hidden;
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  z-index: 1;
-  -webkit-backface-visibility: hidden;
 }
 
 .hintLabel {
@@ -92,8 +85,12 @@
   z-index: 2;
 }
 
-.hint[data-direction="right"] {
-  background: linear-gradient(to left, transparent 45%, var(--card-color));
+.front[data-preview-direction="right"] {
+  background-image: linear-gradient(
+    to left,
+    transparent 45%,
+    color-mix(in srgb, var(--hint-color) calc(var(--hint-opacity) * 100%), transparent)
+  );
 }
 
 .hintLabel[data-direction="right"] {
@@ -101,8 +98,12 @@
   left: 8%;
 }
 
-.hint[data-direction="left"] {
-  background: linear-gradient(to right, transparent 45%, var(--card-color));
+.front[data-preview-direction="left"] {
+  background-image: linear-gradient(
+    to right,
+    transparent 45%,
+    color-mix(in srgb, var(--hint-color) calc(var(--hint-opacity) * 100%), transparent)
+  );
 }
 
 .hintLabel[data-direction="left"] {
@@ -110,8 +111,12 @@
   right: 8%;
 }
 
-.hint[data-direction="up"] {
-  background: linear-gradient(to top, transparent 45%, var(--card-color));
+.front[data-preview-direction="up"] {
+  background-image: linear-gradient(
+    to top,
+    transparent 45%,
+    color-mix(in srgb, var(--hint-color) calc(var(--hint-opacity) * 100%), transparent)
+  );
 }
 
 .hintLabel[data-direction="up"] {
@@ -120,8 +125,12 @@
   transform: translateX(-50%);
 }
 
-.hint[data-direction="down"] {
-  background: linear-gradient(to top, transparent 45%, var(--card-color));
+.front[data-preview-direction="down"] {
+  background-image: linear-gradient(
+    to top,
+    transparent 45%,
+    color-mix(in srgb, var(--hint-color) calc(var(--hint-opacity) * 100%), transparent)
+  );
 }
 
 .hintLabel[data-direction="down"] {
